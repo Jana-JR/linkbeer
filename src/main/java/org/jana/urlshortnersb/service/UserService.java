@@ -34,8 +34,9 @@ public class UserService {
                         loginRequest.getPassword()));
         SecurityContextHolder.getContext().setAuthentication(authentication);
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        String jwt = jwtUtils.generateToken(userDetails);
-        return new JwtAuthenticationResponse(jwt);
+        String accessToken = jwtUtils.generateAccessToken(userDetails);
+        String refreshToken = jwtUtils.generateRefreshToken(userDetails);
+        return new JwtAuthenticationResponse(accessToken, refreshToken);
     }
 
     public User findByUsername(String name) {

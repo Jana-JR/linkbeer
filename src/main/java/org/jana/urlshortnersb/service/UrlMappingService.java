@@ -7,6 +7,7 @@ import org.jana.urlshortnersb.dtos.UrlMappingDTO;
 import org.jana.urlshortnersb.models.ClickEvent;
 import org.jana.urlshortnersb.models.UrlMapping;
 import org.jana.urlshortnersb.models.User;
+import org.jana.urlshortnersb.dtos.UpdateUrlRequest;
 import org.jana.urlshortnersb.repository.ClickEventRepository;
 import org.jana.urlshortnersb.repository.UrlMappingRepository;
 import org.springframework.stereotype.Service;
@@ -104,5 +105,35 @@ public class UrlMappingService {
         }
 
         return urlMapping;
+    }
+
+    public void updateUrl(Long id, UpdateUrlRequest updateRequest, User user) {
+        UrlMapping urlMapping = urlMappingRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("URL not found"));
+        
+        // Verify ownership
+        if (!urlMapping.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("You are not the owner of this URL");
+        }
+        
+        // Update URL if provided
+        if (updateRequest.getNewURL() != null && !updateRequest.getNewURL().isEmpty()) {
+            // Basic URL validation
+            if (!updateRequest.getNewURL().startsWith("http")) {
+                throw new RuntimeException("Invalid URL format");
+            }
+            urlMapping.setOriginalUrl(updateRequest.getNewURL());
+        }
+        
+        // Update custom slug if provided
+        if (updateRequest.getCustomSlug() != null && !updateRequest.getCustomSlug().isEmpty()) {
+            // Check slug uniqueness
+            if (urlMappingRepository.findByShortUrl(updateRequest.getCustomSlug()) != null) {
+                throw new RuntimeException("Custom slug already exists");
+            }
+            urlMapping.setShortUrl(updateRequest.getCustomSlug());
+        }
+        
+        urlMappingRepository.save(urlMapping);
     }
 }

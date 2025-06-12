@@ -2,6 +2,7 @@ package org.jana.urlshortnersb.controller;
 
 import org.jana.urlshortnersb.dtos.ClickEventDTO;
 import org.jana.urlshortnersb.dtos.UrlMappingDTO;
+import org.jana.urlshortnersb.dtos.UpdateUrlRequest;
 import org.jana.urlshortnersb.models.User;
 import org.jana.urlshortnersb.service.UrlMappingService;
 import org.jana.urlshortnersb.service.UserService;
@@ -74,5 +75,17 @@ public class UrlMappingController {
         LocalDate end = LocalDate.parse(endDate, formatter);
         Map<LocalDate, Long> totalClicks = urlMappingService.getTotalClicksByUserAndDate(user, start, end);
         return ResponseEntity.ok(totalClicks);
+    }
+
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<?> updateUrl(@PathVariable Long id, @RequestBody UpdateUrlRequest updateRequest, Principal principal) {
+        User user = userService.findByUsername(principal.getName());
+        try {
+            urlMappingService.updateUrl(id, updateRequest, user);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
     }
 }

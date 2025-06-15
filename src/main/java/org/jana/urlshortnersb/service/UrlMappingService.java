@@ -1,9 +1,9 @@
 package org.jana.urlshortnersb.service;
 
-
 import lombok.AllArgsConstructor;
 import org.jana.urlshortnersb.dtos.ClickEventDTO;
 import org.jana.urlshortnersb.dtos.UrlMappingDTO;
+import org.jana.urlshortnersb.exceptions.BlockedUrlException;
 import org.jana.urlshortnersb.models.ClickEvent;
 import org.jana.urlshortnersb.models.UrlMapping;
 import org.jana.urlshortnersb.models.User;
@@ -11,6 +11,7 @@ import org.jana.urlshortnersb.dtos.UpdateUrlRequest;
 import org.jana.urlshortnersb.repository.ClickEventRepository;
 import org.jana.urlshortnersb.repository.UrlMappingRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,10 +24,17 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class UrlMappingService {
 
-    private UrlMappingRepository urlMappingRepository;
-    private ClickEventRepository clickEventRepository;
-
+    private final UrlSafetyService urlSafetyService;
+    private final UrlMappingRepository urlMappingRepository;
+    private final ClickEventRepository clickEventRepository;
+    
     public UrlMappingDTO createShortUrl(String originalUrl, User user) {
+        // Check URL safety with detailed reason
+        String blockReason = urlSafetyService.checkUrlSafety(originalUrl);
+        if (blockReason != null) {
+            throw new BlockedUrlException("Unsafe URL detected: " + originalUrl, blockReason);
+        }
+        
         String shortUrl = generateShortUrl();
         UrlMapping urlMapping = new UrlMapping();
         urlMapping.setOriginalUrl(originalUrl);
@@ -94,6 +102,12 @@ public class UrlMappingService {
     public UrlMapping getOriginalUrl(String shortUrl) {
         UrlMapping urlMapping = urlMappingRepository.findByShortUrl(shortUrl);
         if (urlMapping != null) {
+            // Check URL safety before redirecting
+            String blockReason = urlSafetyService.checkUrlSafety(urlMapping.getOriginalUrl());
+            if (blockReason != null) {
+                throw new BlockedUrlException("Unsafe URL detected: " + urlMapping.getOriginalUrl(), blockReason);
+            }
+            
             urlMapping.setClickCount(urlMapping.getClickCount() + 1);
             urlMappingRepository.save(urlMapping);
 
@@ -105,6 +119,24 @@ public class UrlMappingService {
         }
 
         return urlMapping;
+    }
+
+    @Transactional
+    public void deleteUrl(Long id, User user) {
+        UrlMapping urlMapping = urlMappingRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("URL not found"));
+        
+        // Verify ownership
+        if (!urlMapping.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("You are not the owner of this URL");
+        }
+        
+        // Access clickEvents inside transaction to initialize proxy
+        urlMapping.getClickEvents().size();
+        
+        // Remove all click events explicitly (optional, for clarity)
+        clickEventRepository.deleteAll(urlMapping.getClickEvents());
+        urlMappingRepository.delete(urlMapping);
     }
 
     public void updateUrl(Long id, UpdateUrlRequest updateRequest, User user) {
@@ -129,7 +161,7 @@ public class UrlMappingService {
         if (updateRequest.getCustomSlug() != null && !updateRequest.getCustomSlug().isEmpty()) {
             // Check slug uniqueness
             if (urlMappingRepository.findByShortUrl(updateRequest.getCustomSlug()) != null) {
-                throw new RuntimeException("Custom slug already exists");
+                throw new RuntimeException("Custom url already exists");
             }
             urlMapping.setShortUrl(updateRequest.getCustomSlug());
         }

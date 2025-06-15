@@ -77,6 +77,18 @@ public class UrlMappingController {
         return ResponseEntity.ok(totalClicks);
     }
 
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<?> deleteUrl(@PathVariable Long id, Principal principal) {
+        User user = userService.findByUsername(principal.getName());
+        try {
+            urlMappingService.deleteUrl(id, user);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<?> updateUrl(@PathVariable Long id, @RequestBody UpdateUrlRequest updateRequest, Principal principal) {

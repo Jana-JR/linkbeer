@@ -3,15 +3,14 @@ package org.jana.urlshortnersb.service;
 import lombok.AllArgsConstructor;
 import org.jana.urlshortnersb.dtos.ClickEventDTO;
 import org.jana.urlshortnersb.dtos.UrlMappingDTO;
-import org.jana.urlshortnersb.exceptions.BlockedUrlException;
 import org.jana.urlshortnersb.models.ClickEvent;
 import org.jana.urlshortnersb.models.UrlMapping;
 import org.jana.urlshortnersb.models.User;
 import org.jana.urlshortnersb.dtos.UpdateUrlRequest;
+import org.jana.urlshortnersb.exceptions.BlockedUrlException;
 import org.jana.urlshortnersb.repository.ClickEventRepository;
 import org.jana.urlshortnersb.repository.UrlMappingRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -121,7 +120,6 @@ public class UrlMappingService {
         return urlMapping;
     }
 
-    @Transactional
     public void deleteUrl(Long id, User user) {
         UrlMapping urlMapping = urlMappingRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("URL not found"));
@@ -130,9 +128,6 @@ public class UrlMappingService {
         if (!urlMapping.getUser().getId().equals(user.getId())) {
             throw new RuntimeException("You are not the owner of this URL");
         }
-        
-        // Access clickEvents inside transaction to initialize proxy
-        urlMapping.getClickEvents().size();
         
         // Remove all click events explicitly (optional, for clarity)
         clickEventRepository.deleteAll(urlMapping.getClickEvents());
@@ -161,7 +156,7 @@ public class UrlMappingService {
         if (updateRequest.getCustomSlug() != null && !updateRequest.getCustomSlug().isEmpty()) {
             // Check slug uniqueness
             if (urlMappingRepository.findByShortUrl(updateRequest.getCustomSlug()) != null) {
-                throw new RuntimeException("Custom url already exists");
+                throw new RuntimeException("Custom slug already exists");
             }
             urlMapping.setShortUrl(updateRequest.getCustomSlug());
         }
